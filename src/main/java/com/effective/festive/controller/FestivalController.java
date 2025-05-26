@@ -60,4 +60,5 @@ public class FestivalController {
 
         return ResponseEntity.ok(festival);
     }
+
 }
