@@ -1,6 +1,10 @@
 package com.effective.festive;
 
+<<<<<<< HEAD
 import com.effective.festive.config.FestivalConfig;
+=======
+
+>>>>>>> dbff002 (csv 수정3)
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;

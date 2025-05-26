@@ -22,6 +22,7 @@ public class FestivalController {
 
     // 전체 축제 조회 API
     @GetMapping
+<<<<<<< HEAD
     public ResponseEntity<List<Festival>> getAllFestivals() {
         try {
             List<Festival> festivals = service.getAllFestivals();
@@ -29,6 +30,10 @@ public class FestivalController {
         } catch (Exception e) {
             throw new RuntimeException("축제 목록을 조회하는 중 오류가 발생했습니다.", e);
         }
+=======
+    public ResponseEntity<List<Festival>> getAllFestivals() throws Exception {
+        return ResponseEntity.ok(service.getAllFestivals());
+>>>>>>> dbff002 (csv 수정3)
     }
 
     // 날짜 빠른 기준 축제 조회 API
@@ -40,6 +45,18 @@ public class FestivalController {
         } catch (Exception e) {
             throw new RuntimeException("예정된 축제 목록을 조회하는 중 오류가 발생했습니다.", e);
         }
+    }
+
+    // 구군별 축제 조회 API
+    @GetMapping("/district/{district}")
+    public ResponseEntity<List<Festival>> getByDistrict(@PathVariable String district) throws Exception {
+        return ResponseEntity.ok(service.getFestivalsByDistrict(district));
+    }
+
+    // 축제명으로 검색 API
+    @GetMapping("/search")
+    public ResponseEntity<List<Festival>> searchByTitle(@RequestParam String keyword) throws Exception {
+        return ResponseEntity.ok(service.searchFestivalsByTitle(keyword));
     }
 
     // 최근 본 축제 조회 API (쿠키 사용)
