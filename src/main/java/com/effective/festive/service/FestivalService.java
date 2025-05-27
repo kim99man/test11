@@ -2,44 +2,38 @@ package com.effective.festive.service;
 
 import com.effective.festive.config.FestivalConfig;
 import com.effective.festive.model.Festival;
-<<<<<<< HEAD
+import java.io.File;
+import java.io.FileReader;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.time.LocalDate;
-=======
-import com.opencsv.bean.CsvToBeanBuilder;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.stereotype.Service;
-
-import java.io.FileReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
->>>>>>> dbff002 (csv 수정3)
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class FestivalService {
-<<<<<<< HEAD
-    
+
     private final FestivalConfig festivalConfig;
-    
+    private final Resource festivalData;
     // 메모리 캐시 - 성능 향상을 위해
     private List<Festival> cachedFestivals = null;
     private final Object cacheLock = new Object();
     private long lastCacheUpdate = 0;
 
-    @Autowired
-    public FestivalService(FestivalConfig festivalConfig) {
+
+    public FestivalService(FestivalConfig festivalConfig, Resource festivalData) {
         this.festivalConfig = festivalConfig;
+        this.festivalData=festivalData;
     }
 
     //CSV 파일에서 전체 축제 목록 가져옴 (캐싱 적용)
@@ -48,36 +42,31 @@ public class FestivalService {
         boolean shouldRefreshCache = false;
         if (festivalConfig.getCache().isEnabled()) {
             long currentTime = System.currentTimeMillis();
-            shouldRefreshCache = cachedFestivals == null || 
-                (currentTime - lastCacheUpdate) > festivalConfig.getCache().getRefreshInterval();
+            shouldRefreshCache = cachedFestivals == null ||
+                    (currentTime - lastCacheUpdate) > festivalConfig.getCache().getRefreshInterval();
         }
-        
+
         if (cachedFestivals != null && !shouldRefreshCache) {
             return new ArrayList<>(cachedFestivals); // 복사본 반환으로 안전성 확보
         }
-        
+
         synchronized (cacheLock) {
             if (cachedFestivals != null && !shouldRefreshCache) {
                 return new ArrayList<>(cachedFestivals);
             }
-            
+
             List<Festival> festivals = new ArrayList<>();
-            
+
             try {
                 String csvFilePath = festivalConfig.getCsv().getFilePath();
                 String encoding = festivalConfig.getCsv().getEncoding();
-                
-                ClassPathResource resource = new ClassPathResource(csvFilePath);
-                if (!resource.exists()) {
-                    throw new Exception("CSV 파일을 찾을 수 없습니다: " + csvFilePath);
-                }
-                
+
                 Charset charset = Charset.forName(encoding);
                 CSVParser parser = CSVFormat.DEFAULT
                         .withFirstRecordAsHeader()
                         .withTrim()  // 헤더와 값의 공백 제거
-                        .parse(new InputStreamReader(resource.getInputStream(), charset));
-                
+                        .parse(new InputStreamReader(festivalData.getInputStream(), charset));
+
                 for (CSVRecord record : parser) {
                     try {
                         Festival festival = createFestivalFromRecord(record);
@@ -89,36 +78,48 @@ public class FestivalService {
                         System.err.println("레코드 파싱 실패: " + e.getMessage());
                     }
                 }
-                
+
                 parser.close();
-                
+
                 if (festivalConfig.getCache().isEnabled()) {
                     cachedFestivals = festivals; // 캐시에 저장
                     lastCacheUpdate = System.currentTimeMillis();
                 }
-                
+
             } catch (IOException e) {
                 throw new Exception("CSV 파일을 읽는 중 오류가 발생했습니다: " + e.getMessage(), e);
             }
-            
+
             return new ArrayList<>(festivals);
         }
     }
-    
+
     // CSV 레코드에서 Festival 객체 생성
     private Festival createFestivalFromRecord(CSVRecord record) {
         Festival festival = new Festival();
-        
+
         // 필수 필드 검증
+        //TODO 여기서 널나오고, 널은 빈 객체를 반환함.
+
+//        String id = getColumnValue(record, "콘텐츠ID");
+//        String name = getColumnValue(record, "콘텐츠명");
+//
+//        ID나 이름이 없으면 이 레코드는 무시
+//        if (id == null || id.isEmpty() || name == null || name.isEmpty()) {
+//            return null;
+//        }
+
+//        또는
+
         String id = getColumnValue(record, "콘텐츠ID");
         if (id == null || id.trim().isEmpty()) {
-            return null; // ID가 없으면 무효한 레코드
-        }
-        
+            return festival; // ID가 없으면 무효한 레코드
+        } //널이면 빈 객체를 반환
+
         festival.setSeq(id);
         festival.setContentName(getColumnValue(record, "콘텐츠명"));
         festival.setDistrict(getColumnValue(record, "구군"));
-        
+
         // 위도, 경도 파싱 (null 체크)
         try {
             String latStr = getColumnValue(record, "위도");
@@ -132,7 +133,7 @@ public class FestivalService {
         } catch (NumberFormatException e) {
             // 파싱 실패시 null로 유지
         }
-        
+
         festival.setLocation(getColumnValue(record, "장소"));
         festival.setTitle(getColumnValue(record, "제목"));
         festival.setSubtitle(getColumnValue(record, "부제목"));
@@ -149,10 +150,10 @@ public class FestivalService {
         festival.setThumbUrl(getColumnValue(record, "썸네일이미지URL"));
         festival.setDetailContent(getColumnValue(record, "상세내용"));
         festival.setFacilities(getColumnValue(record, "편의시설"));
-        
+
         return festival;
     }
-    
+
     // 안전하게 컬럼 값을 가져오는 메서드
     private String getColumnValue(CSVRecord record, String columnName) {
         try {
@@ -180,38 +181,13 @@ public class FestivalService {
     }
 
     //날짜 기준 오름차순 조회 (미래 축제만)
-=======
-    private static final String CSV_FILE_PATH = "busan_festivals.csv";
-
-    //CSV 파일에서 전체 축제 목록 가져옴
-    public List<Festival> getAllFestivals() throws Exception {
-        ClassPathResource resource = new ClassPathResource(CSV_FILE_PATH);
-        
-        try (InputStreamReader reader = new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)) {
-            List<Festival> festivals = new CsvToBeanBuilder<Festival>(reader)
-                    .withType(Festival.class)
-                    .withIgnoreLeadingWhiteSpace(true)
-                    .build()
-                    .parse();
-            
-            return festivals;
-        }
-    }
-
-    //날짜 기준 오름차순 조회 (운영기간 기준)
->>>>>>> dbff002 (csv 수정3)
     public List<Festival> getUpcomingFestivals() throws Exception {
         LocalDate today = LocalDate.now();
         return getAllFestivals()
                 .stream()
-<<<<<<< HEAD
                 .filter(f -> f.getStartDate() != null) // 날짜가 있는 것만 필터링
                 .filter(f -> f.getStartDate().isAfter(today) || f.getStartDate().equals(today)) // 오늘 이후 축제만
                 .sorted(Comparator.comparing(Festival::getStartDate))
-=======
-                .filter(f -> f.getOperatingPeriod() != null && !f.getOperatingPeriod().trim().isEmpty())
-                .sorted(Comparator.comparing(f -> f.getOperatingPeriod()))
->>>>>>> dbff002 (csv 수정3)
                 .collect(Collectors.toList());
     }
 
@@ -220,7 +196,7 @@ public class FestivalService {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();
         }
-        
+
         return getAllFestivals()
                 .stream()
                 .filter(f -> f.getSeq() != null && ids.contains(f.getSeq()))
@@ -232,38 +208,38 @@ public class FestivalService {
         if (id == null || id.trim().isEmpty()) {
             throw new IllegalArgumentException("축제 ID가 필요합니다.");
         }
-        
+
         return getAllFestivals()
                 .stream()
                 .filter(f -> f.getSeq() != null && f.getSeq().equals(id.trim()))
                 .findFirst()
                 .orElseThrow(() -> new NoSuchElementException("ID가 " + id + "인 축제를 찾을 수 없습니다."));
     }
-    
+
     // 축제 검색 기능 추가
     public List<Festival> searchFestivals(String keyword) throws Exception {
         if (keyword == null || keyword.trim().isEmpty()) {
             return Collections.emptyList();
         }
-        
+
         String lowerKeyword = keyword.toLowerCase().trim();
-        
+
         return getAllFestivals()
                 .stream()
                 .filter(f -> matchesKeyword(f, lowerKeyword))
                 .collect(Collectors.toList());
     }
-    
+
     // 키워드 매칭 로직
     private boolean matchesKeyword(Festival festival, String keyword) {
         return (festival.getTitle() != null && festival.getTitle().toLowerCase().contains(keyword)) ||
-               (festival.getContentName() != null && festival.getContentName().toLowerCase().contains(keyword)) ||
-               (festival.getDistrict() != null && festival.getDistrict().toLowerCase().contains(keyword)) ||
-               (festival.getLocation() != null && festival.getLocation().toLowerCase().contains(keyword)) ||
-               (festival.getMainPlace() != null && festival.getMainPlace().toLowerCase().contains(keyword)) ||
-               (festival.getDetailContent() != null && festival.getDetailContent().toLowerCase().contains(keyword));
+                (festival.getContentName() != null && festival.getContentName().toLowerCase().contains(keyword)) ||
+                (festival.getDistrict() != null && festival.getDistrict().toLowerCase().contains(keyword)) ||
+                (festival.getLocation() != null && festival.getLocation().toLowerCase().contains(keyword)) ||
+                (festival.getMainPlace() != null && festival.getMainPlace().toLowerCase().contains(keyword)) ||
+                (festival.getDetailContent() != null && festival.getDetailContent().toLowerCase().contains(keyword));
     }
-    
+
     // 캐시 초기화 (필요시 사용)
     public void clearCache() {
         synchronized (cacheLock) {
@@ -271,12 +247,12 @@ public class FestivalService {
             lastCacheUpdate = 0;
         }
     }
-    
+
     // CSV 파일 경로 정보 조회 (디버깅용)
     public String getCsvFilePath() {
         return festivalConfig.getCsv().getFilePath();
     }
-    
+
     // 캐시 상태 정보 조회 (디버깅용)
     public Map<String, Object> getCacheInfo() {
         Map<String, Object> info = new HashMap<>();
@@ -286,23 +262,4 @@ public class FestivalService {
         info.put("lastCacheUpdate", new Date(lastCacheUpdate));
         return info;
     }
-<<<<<<< HEAD
-=======
-
-    // 구군별 축제 조회
-    public List<Festival> getFestivalsByDistrict(String district) throws Exception {
-        return getAllFestivals()
-                .stream()
-                .filter(f -> f.getDistrict() != null && f.getDistrict().contains(district))
-                .collect(Collectors.toList());
-    }
-
-    // 축제명으로 검색
-    public List<Festival> searchFestivalsByTitle(String keyword) throws Exception {
-        return getAllFestivals()
-                .stream()
-                .filter(f -> f.getTitle() != null && f.getTitle().toLowerCase().contains(keyword.toLowerCase()))
-                .collect(Collectors.toList());
-    }
->>>>>>> dbff002 (csv 수정3)
 }
